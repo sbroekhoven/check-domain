@@ -38,7 +38,7 @@ check-domain -nameserver 1.1.1.1 example.com
 # Also save the results as JSON and as an HTML report (missing folders are created)
 check-domain -json reports/example.json -html reports/example.html example.com
 
-# A folder (trailing /) gets a timestamped file name, e.g. results/20261021001500-example.com.json
+# A folder (trailing /) gets a timestamped file name, e.g. results/20261021001500-example.com-check-domain.json
 check-domain -json results/ example.com
 
 # Only DNS: no RDAP lookup, no zone transfer test
@@ -55,6 +55,7 @@ check-domain -no-rdap -no-axfr example.com
 | `-timeout` | `3s` | Timeout per DNS query |
 | `-json` | | Also write the results as JSON to this file, or into this folder (`dir/`) |
 | `-html` | | Also write an HTML report to this file, or into this folder (`dir/`) |
+| `-cron` | `false` | Print only one JSON log line per run, for cron jobs (needs `-json` or `-html`) |
 | `-no-rdap` | `false` | Don't look up the registration via RDAP |
 | `-no-axfr` | `false` | Don't test whether the nameservers allow zone transfers |
 | `-v` | `false` | Also show the details of passing checks |
@@ -62,6 +63,49 @@ check-domain -no-rdap -no-axfr example.com
 | `-version` | | Print version and exit |
 
 The console output is always printed to stdout. `-json` and `-html` write files in addition to it and can be used together; the paths they were saved to are printed on stderr. Colours are used when writing to a terminal and are turned off when the output is piped or `NO_COLOR` is set.
+
+## Running from Cron
+
+With `-cron` the tool prints nothing but one JSON line per run, so a cron job can check a list of domains and keep a simple log. The full results go to the `-json` and/or `-html` files; `-cron` refuses to run without at least one of them.
+
+```bash
+# /etc/cron.d/check-domain: every day at 06:00, append one line per domain to checks.log
+0 6 * * * user cd /srv/checks && for d in example.com example.org example.net; do check-domain -cron -json results/ -html reports/ "$d"; done >> checks.log 2>&1
+```
+
+Each run adds a line like this (one line in the log; wrapped here for reading):
+
+```json
+{"time":"2026-10-21T06:00:01Z","tool":"check-domain","version":"1.0.0","domain":"example.com",
+ "status":"ok","exit":0,"pass":28,"warn":1,"fail":0,"info":6,"err":0,"duration_ms":1180,
+ "json":"results/20261021060001-example.com-check-domain.json","html":"reports/20261021060001-example.com-check-domain.html"}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `time` | Start of the run (UTC) |
+| `tool`, `version` | The tool and its version |
+| `domain` | The domain that was checked |
+| `zone` | The zone that was checked, when it differs from `domain` (e.g. for `www.example.com`) |
+| `status` | `ok`, `fail` (a check failed) or `error` (the run could not complete), matching `exit` |
+| `exit` | Exit code: 0, 2 or 1 (see [Exit Codes](#exit-codes)) |
+| `pass`, `warn`, `fail`, `info` | Number of checks per result |
+| `err` | Number of failed lookups plus output files that could not be written |
+| `duration_ms` | How long the run took |
+| `json`, `html` | Where the results were stored (left out if not written) |
+| `error` | Why the status is `error` (left out otherwise) |
+
+A run that can't start (no or an invalid domain, no `-json`/`-html`) still logs one line with `"status":"error"`. Only a malformed command line, such as an unknown flag, prints a usage message instead.
+
+Useful queries with [jq](https://jqlang.github.io/jq/):
+
+```bash
+# Every run that did not end OK
+jq -c 'select(.status != "ok")' checks.log
+
+# The latest result per domain
+jq -s -c 'group_by(.domain) | map(max_by(.time) | {domain, status, pass, warn, fail})[]' checks.log
+```
 
 ## HTML Report
 
