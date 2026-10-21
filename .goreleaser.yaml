@@ -1,31 +1,27 @@
-# This is an example .goreleaser.yml file with some sensible defaults.
 # Make sure to check the documentation at https://goreleaser.com
-
-# The lines below are called `modelines`. See `:help modeline`
-# Feel free to remove those if you don't want/need to use them.
-# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-# vim: set ts=2 sw=2 tw=0 fo=cnqoj
-
 version: 2
 
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
-    - go generate ./...
-
 builds:
-  - env:
+  - main: ./cmd/check-domain
+    binary: check-domain
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
       - windows
       - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
 
 archives:
-  - formats: [ 'zip' ]
-    # this name template makes the OS and Arch compatible with the results of `uname`.
+  - formats: [zip]
+    # this name template makes the OS and Arch compatible with the results of uname.
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -33,17 +29,19 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-
+    # use tar.gz for linux archives
+    format_overrides:
+      - goos: linux
+        formats: [tar.gz]
 changelog:
   sort: asc
   filters:
     exclude:
-      - "^docs:"
-      - "^test:"
+      - '^docs:'
+      - '^test:'
 
+# modifies the release on GitHub
 release:
-  footer: >-
-
-    ---
-
-    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
+  github:
+    owner: sbroekhoven
+    name: check-domain

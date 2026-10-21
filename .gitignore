@@ -8,20 +8,21 @@
 # Test binary, built with `go test -c`
 *.test
 
-# Output of the go coverage tool, specifically when used with LiteIDE
+# Output of the go coverage tool
 *.out
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# Locally built binary and output folder
+/check-domain
+/output/
 
-# configs that can contain "secrets"
-config.json
-config.yaml
-config.*
-domains.txt
-*.json
-output/*.json
-# poc directory
-poc/
-# Added by goreleaser init:
-dist/
+# Local configuration and domain lists that may contain private data
+/config.*
+/domains.txt
+
+# Old proof-of-concept directory
+/poc/
+
+# GoReleaser output
+/dist/
+
+.DS_Store
